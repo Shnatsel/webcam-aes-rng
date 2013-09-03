@@ -50,8 +50,8 @@ int main (int argc, char **argv)
 */
 
   /* Initialize the webcam */
-  unsigned char webcam_data_iv[16];
-  gcry_mpi_t webcam_data = gcry_mpi_new (16);
+  unsigned char webcam_data_raw[16];
+  gcry_mpi_t webcam_data_mpi = gcry_mpi_new (16);
   int nread;
   int webcam_device = open("/dev/video0", O_RDONLY);
   if (webcam_device == -1) {
@@ -63,14 +63,14 @@ int main (int argc, char **argv)
   while (bytes)
     {
       /* Read data from webcam */
-      nread = read(webcam_device, webcam_data_iv, 16);
+      nread = read(webcam_device, webcam_data_raw, 16);
       if (nread == -1) {
         fprintf(stderr, "A read error has occurred!\n");
         return EXIT_FAILURE;
       }
-      gcry_mpi_scan (&webcam_data, GCRYMPI_FMT_USG, &webcam_data_iv[0], 16, NULL);
+      gcry_mpi_scan (&webcam_data_mpi, GCRYMPI_FMT_USG, &webcam_data_raw[0], 16, NULL);
 
-      gcry_mpi_print (GCRYMPI_FMT_USG, &in[0], 16, NULL, webcam_data);
+      gcry_mpi_print (GCRYMPI_FMT_USG, &in[0], 16, NULL, webcam_data_mpi);
       gcry_cipher_encrypt (aes, &out[0], 16, &in[0], 16);
 
       /* Print out the bytes. */
