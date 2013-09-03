@@ -1,6 +1,7 @@
 /* aesrng.c - AES-based random number generator
  *
  * Copyright (c) 2009 Christopher Wellons <mosquitopsu@gmail.com>
+ * Copyright (c) 2013 Sergey "Shnatsel" Davidoff <shnatsel@gmail.com>
  *
  * Permission to use, copy, modify, and distribute this software for
  * any purpose with or without fee is hereby granted, provided that
@@ -20,6 +21,8 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <gcrypt.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 int main (int argc, char **argv)
 {
@@ -39,26 +42,47 @@ int main (int argc, char **argv)
   gcry_cipher_setiv (aes, iv, 16);
 
   /* Initialize the counter */
+/*
   unsigned char counter_iv[16];
   gcry_create_nonce (&counter_iv[0], 16);
   gcry_mpi_t counter = gcry_mpi_new (16);
   gcry_mpi_scan (&counter, GCRYMPI_FMT_USG, &counter_iv[0], 16, NULL);
+*/
+
+  /* Initialize the webcam */
+  unsigned char webcam_data_iv[16];
+  gcry_mpi_t webcam_data = gcry_mpi_new (16);
+  int nread;
+  int webcam_device = open("/dev/video0", O_RDONLY);
+  if (webcam_device == -1) {
+    fprintf(stderr, "Could not open webcam device!\n");
+    return EXIT_FAILURE;
+  }
 
   unsigned char in[16], out[16];
   while (bytes)
     {
-      gcry_mpi_add_ui (counter, counter, 1);
-      gcry_mpi_print (GCRYMPI_FMT_USG, &in[0], 16, NULL, counter);
+      /* Read data from webcam */
+      nread = read(webcam_device, webcam_data_iv, 16);
+      if (nread == -1) {
+        fprintf(stderr, "A read error has occurred!\n");
+        return EXIT_FAILURE;
+      }
+      gcry_mpi_scan (&webcam_data, GCRYMPI_FMT_USG, &webcam_data_iv[0], 16, NULL);
+
+      gcry_mpi_print (GCRYMPI_FMT_USG, &in[0], 16, NULL, webcam_data);
       gcry_cipher_encrypt (aes, &out[0], 16, &in[0], 16);
 
       /* Print out the bytes. */
       size_t nout = 16;
       if (nout > bytes)
-	nout = bytes;
+        nout = bytes;
       fwrite (&out[0], nout, 1, stdout);
 
       bytes -= nout;
     }
+
+  close(webcam_device);
 
   return EXIT_SUCCESS;
 }
